@@ -1,0 +1,6 @@
+/coverage.out
+/coverage.html
+/.env
+/.env.*
+/.DS_Store
+/web
