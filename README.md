@@ -133,6 +133,9 @@ fmt.Println(profile.Data.ID, profile.Data.Name, profile.RequestID)
 if profile.Data.HireDate != nil {
     fmt.Println(*profile.Data.HireDate) // YYYY-MM-DD
 }
+for _, dept := range profile.Data.Departments {
+    fmt.Println(dept.ID, dept.ParentID, dept.Name, dept.Order)
+}
 
 permissions, err := client.GetCurrentPermissions(ctx, token.AccessToken)
 if err != nil {
@@ -217,9 +220,11 @@ client, err := auth.NewClient(auth.Config{
 - `docs/openapi-v1.json`：OpenAPI 3.1；原样快照位于 [docs/openapi-v1.json](docs/openapi-v1.json)。
 - `docs/openapi.md`、`internal/openapi/http.go`、`internal/openapi/model.go`：协议说明和当前行为。
 
-上游 JSON 的 `Profile` 暂未列出 `hire_date` / `hire_date_source`，上游 Markdown 和服务端已经提供。
-SDK 兼容二者：`HireDate *string` 接收 `null` 或缺失值，`HireDateSource` 接收 `wecom_hr`、`created_at` 或空值。
-上游权限检查还会校验 IAM key 语法，SDK 不代替服务端权限策略。本次未修改 auth-server。
+上游 JSON 的 `Profile` 暂未列出 `hire_date` / `hire_date_source` 和 `departments`，上游 Markdown、
+服务端组织模型已经提供。SDK 兼容二者：`HireDate *string` 接收 `null` 或缺失值，`HireDateSource` 接收
+`wecom_hr`、`created_at` 或空值；`Departments []Department` 接收 `null` 或缺失值，元素为
+`{id, parent_id, name, order}`，与服务端 IAM 部门模型一致，用户与部门为多对多，`parent_id` 为 0 表示
+根部门，`order` 为显示排序。上游权限检查还会校验 IAM key 语法，SDK 不代替服务端权限策略。本次未修改 auth-server。
 
 ```sh
 go test ./...

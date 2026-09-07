@@ -15,14 +15,24 @@ type Response[T any] struct {
 	RequestID string `json:"request_id"`
 }
 
+// Department mirrors one organization department of the authorized user.
+// ParentID is 0 for root departments; Order is the display sort order.
+type Department struct {
+	ID       int64  `json:"id"`
+	ParentID int64  `json:"parent_id"`
+	Name     string `json:"name"`
+	Order    int64  `json:"order"`
+}
+
 // Profile contains the public fields of the authorized user.
 type Profile struct {
-	ID             int64   `json:"id"`
-	Username       string  `json:"username"`
-	Name           string  `json:"name"`
-	Avatar         string  `json:"avatar"`
-	HireDate       *string `json:"hire_date"`        // YYYY-MM-DD; nil when absent or null.
-	HireDateSource string  `json:"hire_date_source"` // wecom_hr, created_at, or empty.
+	ID             int64        `json:"id"`
+	Username       string       `json:"username"`
+	Name           string       `json:"name"`
+	Avatar         string       `json:"avatar"`
+	HireDate       *string      `json:"hire_date"`        // YYYY-MM-DD; nil when absent or null.
+	HireDateSource string       `json:"hire_date_source"` // wecom_hr, created_at, or empty.
+	Departments    []Department `json:"departments"`      // nil when absent or null; a user may belong to multiple departments.
 }
 
 // Permissions contains effective roles and permissions within this application.

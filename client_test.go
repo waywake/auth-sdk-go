@@ -133,7 +133,7 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 			if r.Method != http.MethodGet || r.ContentLength != 0 {
 				t.Error("invalid profile request")
 			}
-			io.WriteString(w, `{"data":{"id":9007199254740993,"username":"alice","name":"测试用户","avatar":"https://img.example.com/a.png","hire_date":"2026-09-01","hire_date_source":"wecom_hr","future_field":true},"request_id":"profile-1","future_field":true}`)
+			io.WriteString(w, `{"data":{"id":9007199254740993,"username":"alice","name":"测试用户","avatar":"https://img.example.com/a.png","hire_date":"2026-09-01","hire_date_source":"wecom_hr","departments":[{"id":10,"parent_id":1,"name":"技术部","order":1},{"id":11,"parent_id":10,"name":"后端组","order":2}],"future_field":true},"request_id":"profile-1","future_field":true}`)
 		case apiPath + "/me/permissions":
 			if r.Method != http.MethodGet {
 				t.Error("invalid permissions method")
@@ -170,7 +170,11 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if profile.Data.ID != 9007199254740993 || profile.Data.Name != "测试用户" || profile.Data.HireDate == nil || *profile.Data.HireDate != "2026-09-01" || profile.Data.HireDateSource != "wecom_hr" || profile.RequestID != "profile-1" {
+	wantDepartments := []Department{
+		{ID: 10, ParentID: 1, Name: "技术部", Order: 1},
+		{ID: 11, ParentID: 10, Name: "后端组", Order: 2},
+	}
+	if profile.Data.ID != 9007199254740993 || profile.Data.Name != "测试用户" || profile.Data.HireDate == nil || *profile.Data.HireDate != "2026-09-01" || profile.Data.HireDateSource != "wecom_hr" || !reflect.DeepEqual(profile.Data.Departments, wantDepartments) || profile.RequestID != "profile-1" {
 		t.Fatalf("profile=%+v", profile)
 	}
 	permissions, err := c.GetCurrentPermissions(ctx, token.AccessToken)
@@ -307,8 +311,8 @@ func TestInvalidSuccessResponses(t *testing.T) {
 	}
 }
 
-func TestOptionalHireDate(t *testing.T) {
-	for _, extra := range []string{"", `,"hire_date":null,"hire_date_source":""`} {
+func TestOptionalProfileFields(t *testing.T) {
+	for _, extra := range []string{"", `,"hire_date":null,"hire_date_source":"","departments":null`} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"data":{"id":1,"username":"u","name":"n","avatar":""%s},"request_id":"r"}`, extra)
@@ -318,8 +322,8 @@ func TestOptionalHireDate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if profile.Data.HireDate != nil || profile.Data.HireDateSource != "" {
-			t.Fatal("expected unknown hire date")
+		if profile.Data.HireDate != nil || profile.Data.HireDateSource != "" || profile.Data.Departments != nil {
+			t.Fatal("expected unknown profile fields")
 		}
 	}
 }
