@@ -49,6 +49,9 @@ func TestNewClient(t *testing.T) {
 		if c.maxResponseBytes == 0 {
 			t.Fatal("missing response limit")
 		}
+		if c.ClientID() != config.ClientID {
+			t.Fatalf("client id=%d, want %d", c.ClientID(), config.ClientID)
+		}
 	}
 	for _, raw := range []string{"", "/relative", "auth.example.com", "http://auth.example.com", "ftp://auth.example.com", "https://", "https://user:secret@auth.example.com", "https://auth.example.com/openapi/v1", "https://auth.example.com?", "https://auth.example.com?x=1", "https://auth.example.com#", "https://auth.example.com/#x", "https://auth.example.com/%"} {
 		if _, err := NewClient(Config{BaseURL: raw, ClientID: 42}); !errors.Is(err, ErrInvalidArgument) {
@@ -122,7 +125,7 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 			if !reflect.DeepEqual(r.PostForm, want) {
 				t.Errorf("form=%v", r.PostForm)
 			}
-			fmt.Fprintf(w, `{"access_token":%q,"token_type":"Bearer","expires_in":900,"scope":"profile:read permissions:read permissions:check","future_field":true}`, testToken)
+			fmt.Fprintf(w, `{"access_token":%q,"token_type":"Bearer","expires_in":900,"scope":"profile:read permissions:read permissions:check","refresh_token":%q,"future_field":true}`, testToken, testRefreshToken)
 		case apiPath + "/oauth/revoke":
 			want := url.Values{"token": {"unknown-token"}, "token_type_hint": {"access_token"}}
 			if !reflect.DeepEqual(r.PostForm, want) {
@@ -133,12 +136,12 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 			if r.Method != http.MethodGet || r.ContentLength != 0 {
 				t.Error("invalid profile request")
 			}
-			io.WriteString(w, `{"data":{"id":9007199254740993,"username":"alice","name":"测试用户","avatar":"https://img.example.com/a.png","hire_date":"2026-09-01","hire_date_source":"wecom_hr","departments":[{"id":10,"parent_id":1,"name":"技术部","order":1},{"id":11,"parent_id":10,"name":"后端组","order":2}],"future_field":true},"request_id":"profile-1","future_field":true}`)
+			io.WriteString(w, `{"data":{"id":9007199254740993,"username":"alice","name":"测试用户","avatar":"https://img.example.com/a.png","hire_date":"2026-09-01","hire_date_source":"wecom_hr","probation_months":3,"regularization_date":"2026-12-01","future_field":true},"request_id":"profile-1","future_field":true}`)
 		case apiPath + "/me/permissions":
 			if r.Method != http.MethodGet {
 				t.Error("invalid permissions method")
 			}
-			io.WriteString(w, `{"data":{"app_id":42,"user_id":9007199254740993,"roles":["reader"],"permissions":["order.read"]},"request_id":"permissions-1"}`)
+			io.WriteString(w, `{"data":{"app_id":42,"user_id":9007199254740993,"roles":["reader"],"permissions":["order.read"],"evaluated_at":"2026-09-30T10:00:00Z"},"request_id":"permissions-1"}`)
 		case apiPath + "/me/permissions/check":
 			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 				t.Error("invalid check request")
@@ -150,7 +153,7 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 			if len(input) != 1 {
 				t.Error("extra fields in check")
 			}
-			fmt.Fprintf(w, `{"data":{"allowed":%t},"request_id":"check-1"}`, input["permission"] == "order.read")
+			fmt.Fprintf(w, `{"data":{"allowed":%t,"evaluated_at":"2026-09-30T10:00:00Z"},"request_id":"check-1"}`, input["permission"] == "order.read")
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 			w.WriteHeader(404)
@@ -163,18 +166,14 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if token.AccessToken != testToken || token.ExpiresIn != 900 || token.TokenType != "Bearer" || token.Scope != "profile:read permissions:read permissions:check" {
+	if token.AccessToken != testToken || token.ExpiresIn != 900 || token.TokenType != "Bearer" || token.Scope != "profile:read permissions:read permissions:check" || token.RefreshToken != testRefreshToken {
 		t.Fatal("invalid token")
 	}
 	profile, err := c.GetCurrentUser(ctx, token.AccessToken)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantDepartments := []Department{
-		{ID: 10, ParentID: 1, Name: "技术部", Order: 1},
-		{ID: 11, ParentID: 10, Name: "后端组", Order: 2},
-	}
-	if profile.Data.ID != 9007199254740993 || profile.Data.Name != "测试用户" || profile.Data.HireDate == nil || *profile.Data.HireDate != "2026-09-01" || profile.Data.HireDateSource != "wecom_hr" || !reflect.DeepEqual(profile.Data.Departments, wantDepartments) || profile.RequestID != "profile-1" {
+	if profile.Data.ID != 9007199254740993 || profile.Data.Name != "测试用户" || profile.Data.HireDate == nil || *profile.Data.HireDate != "2026-09-01" || profile.Data.HireDateSource != "wecom_hr" || profile.Data.ProbationMonths == nil || *profile.Data.ProbationMonths != 3 || profile.Data.RegularizationDate == nil || *profile.Data.RegularizationDate != "2026-12-01" || profile.RequestID != "profile-1" {
 		t.Fatalf("profile=%+v", profile)
 	}
 	permissions, err := c.GetCurrentPermissions(ctx, token.AccessToken)
@@ -193,7 +192,7 @@ func TestOAuthAndResourcesOverTLS(t *testing.T) {
 			t.Fatalf("check=%+v", check)
 		}
 	}
-	if err := c.RevokeToken(ctx, RevokeTokenParams{Token: "unknown-token", TokenTypeHint: "access_token"}); err != nil {
+	if err := c.RevokeToken(ctx, RevokeTokenParams{Token: "unknown-token", TokenTypeHint: TokenTypeHintAccessToken}); err != nil {
 		t.Fatal(err)
 	}
 	if requests.Load() != 6 {
@@ -312,7 +311,7 @@ func TestInvalidSuccessResponses(t *testing.T) {
 }
 
 func TestOptionalProfileFields(t *testing.T) {
-	for _, extra := range []string{"", `,"hire_date":null,"hire_date_source":"","departments":null`} {
+	for _, extra := range []string{"", `,"hire_date":null,"hire_date_source":"","probation_months":null,"regularization_date":null`} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"data":{"id":1,"username":"u","name":"n","avatar":""%s},"request_id":"r"}`, extra)
@@ -322,7 +321,7 @@ func TestOptionalProfileFields(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if profile.Data.HireDate != nil || profile.Data.HireDateSource != "" || profile.Data.Departments != nil {
+		if profile.Data.HireDate != nil || profile.Data.HireDateSource != "" || profile.Data.ProbationMonths != nil || profile.Data.RegularizationDate != nil {
 			t.Fatal("expected unknown profile fields")
 		}
 	}

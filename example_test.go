@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"fmt"
+	"time"
 
 	auth "github.com/waywake/auth-sdk-go"
 )
@@ -33,4 +34,21 @@ func ExampleCodeChallenge() {
 	}
 	fmt.Println(challenge)
 	// Output: E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+}
+
+// A webhook receiver authenticates a delivery over the raw request body and the
+// signed timestamp header, within a tolerance window.
+func ExampleVerifyWebhookSignature() {
+	secret := []byte("oaw_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG")
+	body := []byte(`{"id":20,"type":"user.updated"}`)
+	timestamp := int64(1790000000)
+	signature := auth.SignWebhookSignature(secret, timestamp, body)
+	fmt.Println(signature)
+	at := time.Unix(timestamp, 0)
+	fmt.Println(auth.VerifyWebhookSignature(secret, body, timestamp, signature, at, auth.DefaultWebhookTolerance))
+	fmt.Println(auth.VerifyWebhookSignature(secret, body, timestamp, signature, at.Add(time.Hour), auth.DefaultWebhookTolerance))
+	// Output:
+	// v1=af8f6d9f03d42a8676cc6a23587da4550e5701e3c3875d10d25f6a864032e0ca
+	// true
+	// false
 }

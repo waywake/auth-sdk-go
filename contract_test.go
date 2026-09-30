@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -25,19 +26,7 @@ func TestOpenAPIContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	var spec struct {
-		Paths map[string]map[string]struct {
-			OperationID string `json:"operationId"`
-			Parameters  []struct {
-				Name     string         `json:"name"`
-				Required bool           `json:"required"`
-				Schema   contractSchema `json:"schema"`
-			} `json:"parameters"`
-			RequestBody struct {
-				Content map[string]struct {
-					Schema contractSchema `json:"schema"`
-				} `json:"content"`
-			} `json:"requestBody"`
-		} `json:"paths"`
+		Paths      map[string]map[string]contractOperation `json:"paths"`
 		Components struct {
 			Schemas map[string]contractSchema `json:"schemas"`
 		} `json:"components"`
@@ -45,132 +34,247 @@ func TestOpenAPIContract(t *testing.T) {
 	if err := json.Unmarshal(data, &spec); err != nil {
 		t.Fatal(err)
 	}
-	responses := map[string]string{
-		"/openapi/v1/oauth/token":          `{"access_token":"` + testToken + `","token_type":"Bearer","expires_in":900,"scope":"profile:read"}`,
-		"/openapi/v1/oauth/revoke":         "",
-		"/openapi/v1/me":                   `{"data":{"id":1,"username":"u","name":"n","avatar":""},"request_id":"r"}`,
-		"/openapi/v1/me/permissions":       `{"data":{"app_id":42,"user_id":1,"roles":[],"permissions":[]},"request_id":"r"}`,
-		"/openapi/v1/me/permissions/check": `{"data":{"allowed":false},"request_id":"r"}`,
+	// Each path item mixes methods with non-operation members, so only the
+	// method keys become operations and each one learns its own pattern.
+	operations := make(map[string]contractOperation)
+	for pattern, methods := range spec.Paths {
+		for method, operation := range methods {
+			if !isMethod(method) {
+				continue
+			}
+			operation.method = strings.ToUpper(method)
+			operation.pattern = pattern
+			operation.schemas = spec.Components.Schemas
+			operations[operation.OperationID] = operation
+		}
 	}
-	var requests []*http.Request
+
+	requests := make([]*http.Request, 0, 64)
 	c := newTestClient(t)
 	c.httpClient.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		requests = append(requests, r)
-		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(responses[r.URL.Path]))}, nil
-	})
-	a, err := c.NewAuthorization(testRedirect, ScopeProfileRead, ScopePermissionsRead, ScopePermissionsCheck)
-	if err != nil {
-		t.Fatal(err)
-	}
-	authorize, err := http.NewRequest("GET", a.URL, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	requests = append(requests, authorize)
-	ctx := context.Background()
-	if _, err := c.ExchangeCode(ctx, ExchangeCodeParams{Code: testCode, RedirectURI: testRedirect, CodeVerifier: testVerifier}); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.RevokeToken(ctx, RevokeTokenParams{Token: "unknown", TokenTypeHint: "access_token"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.GetCurrentUser(ctx, testToken); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.GetCurrentPermissions(ctx, testToken); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.CheckCurrentPermission(ctx, testToken, "order.read"); err != nil {
-		t.Fatal(err)
-	}
-	seen := make(map[string]bool)
-	for _, r := range requests {
-		operation, ok := spec.Paths[r.URL.Path][strings.ToLower(r.Method)]
+		body, ok := contractResponse(r)
 		if !ok {
-			t.Fatalf("SDK operation absent from specification: %s %s", r.Method, r.URL.Path)
+			t.Errorf("contract mock has no response for %s %s", r.Method, r.URL.Path)
 		}
-		seen[operation.OperationID] = true
-		query := r.URL.Query()
-		allowedQuery := make(map[string]bool)
-		for _, p := range operation.Parameters {
-			allowedQuery[p.Name] = true
-			if p.Required && len(query[p.Name]) != 1 {
-				t.Fatalf("%s: missing/duplicate %s", operation.OperationID, p.Name)
+		return &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": {"application/json; charset=utf-8"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}, nil
+	})
+	ctx := context.Background()
+	exercised := make(map[string]bool)
+	for _, call := range contractCalls {
+		t.Run(call.name, func(t *testing.T) {
+			before := len(requests)
+			synthetic, err := call.invoke(t, c, ctx)
+			if err != nil {
+				t.Fatalf("%s: %v", call.name, err)
 			}
-			checkContractValue(t, p.Name, query.Get(p.Name), p.Schema)
-		}
-		for key := range query {
-			if !allowedQuery[key] {
-				t.Fatalf("unexpected query parameter: %s", key)
+			requests = append(requests, synthetic...)
+			if len(requests) == before {
+				t.Fatal("call issued no request")
 			}
-		}
-		if len(operation.RequestBody.Content) == 0 {
+			for _, r := range requests[before:] {
+				operation, ok := operationOf(operations, r)
+				if !ok {
+					t.Fatalf("SDK request absent from specification: %s %s", r.Method, r.URL.Path)
+				}
+				checkContractRequest(t, operation, r)
+				exercised[operation.OperationID] = true
+			}
+		})
+	}
+
+	for id := range operations {
+		if exercised[id] {
 			continue
 		}
-		content, ok := operation.RequestBody.Content[r.Header.Get("Content-Type")]
-		if !ok {
-			t.Fatalf("%s: unsupported Content-Type", operation.OperationID)
+		if _, ok := excludedOperations[id]; ok {
+			continue
 		}
-		schema := content.Schema
-		if schema.Ref != "" {
-			schema = spec.Components.Schemas[strings.TrimPrefix(schema.Ref, "#/components/schemas/")]
+		t.Errorf("SDK does not exercise operation %s", id)
+	}
+	for id := range excludedOperations {
+		if _, ok := operations[id]; !ok {
+			t.Errorf("excluded operation %s no longer exists in the specification", id)
 		}
-		body, err := io.ReadAll(r.Body)
+		if exercised[id] {
+			t.Errorf("operation %s is both exercised and excluded", id)
+		}
+	}
+}
+
+// contractOperation is one operation of the specification, resolved against the
+// component schemas it references.
+type contractOperation struct {
+	OperationID string `json:"operationId"`
+	Parameters  []struct {
+		Name     string         `json:"name"`
+		In       string         `json:"in"`
+		Required bool           `json:"required"`
+		Schema   contractSchema `json:"schema"`
+	} `json:"parameters"`
+	RequestBody struct {
+		Content map[string]struct {
+			Schema contractSchema `json:"schema"`
+		} `json:"content"`
+	} `json:"requestBody"`
+
+	method  string
+	pattern string
+	schemas map[string]contractSchema
+}
+
+// pathParameter matches one path template placeholder after QuoteMeta escaped
+// its braces.
+var pathParameter = regexp.MustCompile(`\\\{[^}]*\\\}`)
+
+func isMethod(value string) bool {
+	switch value {
+	case "get", "post", "put", "patch", "delete", "head", "options":
+		return true
+	default:
+		return false
+	}
+}
+
+// operationOf resolves one concrete request onto the specification's path
+// templates, so a call to /directory/users/7 still checks against
+// /directory/users/{id}.
+func operationOf(operations map[string]contractOperation, r *http.Request) (contractOperation, bool) {
+	for _, operation := range operations {
+		if operation.method != r.Method {
+			continue
+		}
+		expression := "^" + pathParameter.ReplaceAllString(regexp.QuoteMeta(operation.pattern), "[^/]+") + "$"
+		if regexp.MustCompile(expression).MatchString(r.URL.Path) {
+			return operation, true
+		}
+	}
+	return contractOperation{}, false
+}
+
+// checkContractRequest verifies one request against its operation: the declared
+// parameters, no undeclared query key, and a body matching the declared media
+// type and schema.
+func checkContractRequest(t *testing.T, operation contractOperation, r *http.Request) {
+	t.Helper()
+	query := r.URL.Query()
+	allowedQuery := make(map[string]bool)
+	for _, p := range operation.Parameters {
+		if p.In == "path" {
+			// Path parameters are already bound by the template the request
+			// matched; their values are the concrete identifiers the SDK sent.
+			continue
+		}
+		allowedQuery[p.Name] = true
+		if p.Required && len(query[p.Name]) != 1 {
+			t.Fatalf("%s: missing/duplicate %s", operation.OperationID, p.Name)
+		}
+		if !p.Schema.array() && len(query[p.Name]) > 1 {
+			t.Fatalf("%s: repeated %s", operation.OperationID, p.Name)
+		}
+		for _, value := range query[p.Name] {
+			checkContractValue(t, p.Name, value, p.Schema)
+		}
+	}
+	for key := range query {
+		if !allowedQuery[key] {
+			t.Fatalf("%s: unexpected query parameter %s", operation.OperationID, key)
+		}
+	}
+	if len(operation.RequestBody.Content) == 0 {
+		return
+	}
+	content, ok := operation.RequestBody.Content[r.Header.Get("Content-Type")]
+	if !ok {
+		t.Fatalf("%s: unsupported Content-Type %q", operation.OperationID, r.Header.Get("Content-Type"))
+	}
+	schema := content.Schema
+	if schema.Ref != "" {
+		schema = operation.schemas[strings.TrimPrefix(schema.Ref, "#/components/schemas/")]
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := make(map[string]json.RawMessage)
+	if r.Header.Get("Content-Type") == jsonContentType {
+		if err := json.Unmarshal(body, &values); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		form, err := url.ParseQuery(string(body))
 		if err != nil {
 			t.Fatal(err)
 		}
-		values := make(map[string]string)
-		if r.Header.Get("Content-Type") == "application/json" {
-			if err := json.Unmarshal(body, &values); err != nil {
-				t.Fatal(err)
+		for key, entries := range form {
+			if len(entries) != 1 {
+				t.Fatalf("%s: duplicate form field %s", operation.OperationID, key)
 			}
-		} else {
-			form, err := url.ParseQuery(string(body))
-			if err != nil {
-				t.Fatal(err)
-			}
-			for key, entries := range form {
-				if len(entries) != 1 {
-					t.Fatalf("duplicate form field %s", key)
-				}
-				values[key] = entries[0]
-			}
-		}
-		for _, key := range schema.Required {
-			if _, ok := values[key]; !ok {
-				t.Fatalf("%s: missing body field %s", operation.OperationID, key)
-			}
-		}
-		for key, value := range values {
-			field, ok := schema.Properties[key]
-			if !ok {
-				t.Fatalf("%s: unknown body field %s", operation.OperationID, key)
-			}
-			checkContractValue(t, key, value, field)
+			values[key] = json.RawMessage(strconv.Quote(entries[0]))
 		}
 	}
-	for _, methods := range spec.Paths {
-		for _, operation := range methods {
-			if !seen[operation.OperationID] {
-				t.Errorf("SDK is missing operation %s", operation.OperationID)
-			}
+	for _, key := range schema.Required {
+		if _, ok := values[key]; !ok {
+			t.Fatalf("%s: missing body field %s", operation.OperationID, key)
 		}
 	}
+	for key, raw := range values {
+		field, ok := schema.Properties[key]
+		if !ok {
+			t.Fatalf("%s: unknown body field %s", operation.OperationID, key)
+		}
+		if field.array() {
+			var items []json.RawMessage
+			if err := json.Unmarshal(raw, &items); err != nil {
+				t.Fatalf("%s: %s is not an array", operation.OperationID, key)
+			}
+			if field.Items == nil {
+				continue
+			}
+			for _, item := range items {
+				checkContractValue(t, key, rawString(item), *field.Items)
+			}
+			continue
+		}
+		checkContractValue(t, key, rawString(raw), field)
+	}
+}
+
+// rawString reads one JSON scalar as the string the constraint checks compare.
+func rawString(raw json.RawMessage) string {
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return ""
+	}
+	return value
 }
 
 // Only the string constraints used in this API's requests are needed here.
 type contractSchema struct {
 	Ref        string                    `json:"$ref"`
+	Type       json.RawMessage           `json:"type"`
 	Const      json.RawMessage           `json:"const"`
 	Pattern    string                    `json:"pattern"`
 	MinLength  int                       `json:"minLength"`
 	MaxLength  int                       `json:"maxLength"`
 	Required   []string                  `json:"required"`
 	Properties map[string]contractSchema `json:"properties"`
+	Items      *contractSchema           `json:"items"`
 }
+
+// array reports whether the schema is a JSON array, whose scalar string
+// constraints do not apply.
+func (s contractSchema) array() bool { return strings.Contains(string(s.Type), "array") }
 
 func checkContractValue(t *testing.T, field, value string, schema contractSchema) {
 	t.Helper()
+	if schema.array() {
+		return
+	}
 	if len(schema.Const) != 0 {
 		var expected string
 		if err := json.Unmarshal(schema.Const, &expected); err != nil {

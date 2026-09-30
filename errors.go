@@ -14,9 +14,16 @@ var (
 	ErrInvalidResponse = errors.New("auth: invalid response")
 	// ErrResponseTooLarge indicates that the configured response limit was exceeded.
 	ErrResponseTooLarge = errors.New("auth: response too large")
+	// ErrTokenVerification indicates an ID Token or logout token that failed
+	// signature, issuer, audience, freshness or claim validation.
+	ErrTokenVerification = errors.New("auth: token verification failed")
+	// ErrUnknownKey indicates that a token names a signing key the fetched JSON
+	// Web Key Set does not publish.
+	ErrUnknownKey = errors.New("auth: unknown signing key")
 )
 
-// ErrorCode is a stable error value returned by the server.
+// ErrorCode is a stable error value returned by the server. The vocabulary is
+// frozen by the OpenAPI contract; an unknown code is still carried verbatim.
 type ErrorCode string
 
 const (
@@ -30,6 +37,9 @@ const (
 	ErrorHTTPSRequired          ErrorCode = "https_required"
 	ErrorIPNotAllowed           ErrorCode = "ip_not_allowed"
 	ErrorInsufficientScope      ErrorCode = "insufficient_scope"
+	ErrorNotFound               ErrorCode = "not_found"
+	ErrorConflict               ErrorCode = "conflict"
+	ErrorSnapshotRequired       ErrorCode = "snapshot_required"
 	ErrorRateLimitExceeded      ErrorCode = "rate_limit_exceeded"
 	ErrorTemporarilyUnavailable ErrorCode = "temporarily_unavailable"
 )
@@ -58,4 +68,12 @@ func (e *APIError) Unwrap() error { return e.cause }
 
 func invalid(field, reason string) error {
 	return fmt.Errorf("%w: %s %s", ErrInvalidArgument, field, reason)
+}
+
+func invalidResponse(reason string) error {
+	return fmt.Errorf("%w: %s", ErrInvalidResponse, reason)
+}
+
+func verification(reason string) error {
+	return fmt.Errorf("%w: %s", ErrTokenVerification, reason)
 }

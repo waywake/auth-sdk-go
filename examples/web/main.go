@@ -74,7 +74,9 @@ type application struct {
 }
 
 func (a *application) login(w http.ResponseWriter, r *http.Request) {
-	tx, err := a.client.NewAuthorization(a.redirectURI, auth.ScopeProfileRead)
+	tx, err := a.client.NewAuthorization(auth.AuthorizeParams{
+		RedirectURI: a.redirectURI, Scopes: []auth.Scope{auth.ScopeProfileRead},
+	})
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -155,7 +157,9 @@ func main() {
 		log.Fatal(err)
 	}
 	redirectURI := os.Getenv("AUTH_REDIRECT_URI")
-	if _, err := client.NewAuthorization(redirectURI, auth.ScopeProfileRead); err != nil {
+	if _, err := client.NewAuthorization(auth.AuthorizeParams{
+		RedirectURI: redirectURI, Scopes: []auth.Scope{auth.ScopeProfileRead},
+	}); err != nil {
 		log.Fatal(err)
 	}
 	callbackURL, _ := url.Parse(redirectURI)
