@@ -605,3 +605,34 @@ func TestInvalidTokenResponses(t *testing.T) {
 		t.Fatal("an active credential without an expiry was accepted")
 	}
 }
+
+func TestClientCredentialsExpandedMachineScopes(t *testing.T) {
+	scopes := MachineScopeVocabulary()
+	c, m := jsonMock(t, `{"access_token":"`+testMachineToken+`","token_type":"Bearer","expires_in":86400,"scope":"`+joinScopeList(scopes)+`"}`)
+	token, err := c.ClientCredentials(context.Background(), ClientCredentialsParams{Scopes: scopes})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := m.only(t)
+	form, err := url.ParseQuery(request.body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "directory:read leave:read iam:read iam:write events:read audit:read stores:read stores:delivery:read stores:members:read"
+	if form.Get("scope") != want || token.Scope != want {
+		t.Fatalf("scope request=%q response=%q", form.Get("scope"), token.Scope)
+	}
+	for _, scope := range []Scope{ScopeLeaveRead, ScopeStoresRead, ScopeStoresDeliveryRead, ScopeStoresMembersRead} {
+		t.Run(string(scope), func(t *testing.T) {
+			if _, err := c.AuthorizeURL(AuthorizeParams{RedirectURI: testRedirect, Scopes: []Scope{scope}, State: testState, CodeChallenge: testChallenge}); !errors.Is(err, ErrInvalidArgument) {
+				t.Fatalf("machine scope accepted in employee authorization: %v", err)
+			}
+			if _, err := c.Refresh(context.Background(), RefreshParams{RefreshToken: testRefreshToken, Scopes: []Scope{scope}}); !errors.Is(err, ErrInvalidArgument) {
+				t.Fatalf("machine scope accepted in employee refresh: %v", err)
+			}
+		})
+	}
+	if len(m.requests()) != 1 {
+		t.Fatal("invalid employee requests reached the server")
+	}
+}

@@ -25,8 +25,8 @@ const (
 
 	// DefaultPageSize is the server's page size when a request omits Limit.
 	DefaultPageSize = 50
-	// MaxPageSize is the largest page size the server accepts for any
-	// cursor-paginated listing.
+	// MaxPageSize is the largest page size for numeric-cursor listings.
+	// Store listings use MaxStorePageSize instead.
 	MaxPageSize = 200
 	// MaxBatchChecks is the number of permission questions one batch check may
 	// ask.

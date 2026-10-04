@@ -8,8 +8,8 @@ import (
 	"unicode/utf8"
 )
 
-// PageParams is the shared keyset cursor of every listing endpoint. After is
-// the previous page's Next (zero starts from the beginning) and Limit is the
+// PageParams is the shared numeric keyset cursor of directory and IAM listings.
+// After is the previous page's Next (zero starts from the beginning). Limit is the
 // page size, 1 to MaxPageSize; zero selects the server default.
 type PageParams struct {
 	After int64

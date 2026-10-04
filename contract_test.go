@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ func TestOpenAPIContract(t *testing.T) {
 	if err := json.Unmarshal(data, &spec); err != nil {
 		t.Fatal(err)
 	}
+	t.Run("vocabularies", func(t *testing.T) { checkContractVocabularies(t, spec.Components.Schemas) })
 	// Each path item mixes methods with non-operation members, so only the
 	// method keys become operations and each one learns its own pattern.
 	operations := make(map[string]contractOperation)
@@ -256,6 +258,7 @@ func rawString(raw json.RawMessage) string {
 // Only the string constraints used in this API's requests are needed here.
 type contractSchema struct {
 	Ref        string                    `json:"$ref"`
+	Enum       []json.RawMessage         `json:"enum"`
 	Type       json.RawMessage           `json:"type"`
 	Const      json.RawMessage           `json:"const"`
 	Pattern    string                    `json:"pattern"`
@@ -291,4 +294,45 @@ func checkContractValue(t *testing.T, field, value string, schema contractSchema
 	if length < schema.MinLength || (schema.MaxLength > 0 && length > schema.MaxLength) {
 		t.Errorf("%s violates length", field)
 	}
+}
+
+// The closed vocabularies affect local validation as well as documentation.
+// Check their complete membership so a new server scope/event cannot silently
+// remain rejected by the client after refreshing the contract snapshot.
+func checkContractVocabularies(t *testing.T, schemas map[string]contractSchema) {
+	t.Helper()
+	machine := make([]string, 0, len(MachineScopeVocabulary()))
+	for _, scope := range MachineScopeVocabulary() {
+		machine = append(machine, string(scope))
+	}
+	user := make([]string, 0, len(UserScopeVocabulary()))
+	for _, scope := range UserScopeVocabulary() {
+		user = append(user, string(scope))
+	}
+	for _, tc := range []struct {
+		name string
+		got  []string
+	}{
+		{"machine_scopes", machine}, {"user_scopes", user},
+	} {
+		field := schemas["Settings"].Properties[tc.name]
+		if field.Items == nil || !reflect.DeepEqual(tc.got, field.Items.stringEnum()) {
+			t.Errorf("%s differs from the server vocabulary", tc.name)
+		}
+	}
+	events := make([]string, 0, len(EventTypes()))
+	for _, event := range EventTypes() {
+		events = append(events, string(event))
+	}
+	if !reflect.DeepEqual(events, schemas["Event"].Properties["type"].stringEnum()) {
+		t.Error("event types differ from the server vocabulary")
+	}
+}
+
+func (s contractSchema) stringEnum() []string {
+	values := make([]string, 0, len(s.Enum))
+	for _, value := range s.Enum {
+		values = append(values, rawString(value))
+	}
+	return values
 }

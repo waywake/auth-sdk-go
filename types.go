@@ -34,6 +34,8 @@ const (
 
 	// ScopeDirectoryRead reads the organization inside the directory range.
 	ScopeDirectoryRead Scope = "directory:read"
+	// ScopeLeaveRead reads employee leave summaries inside the directory range.
+	ScopeLeaveRead Scope = "leave:read"
 	// ScopeIAMRead reads the application's roles, permission points and grants.
 	ScopeIAMRead Scope = "iam:read"
 	// ScopeIAMWrite manages the application's roles, permission points and grants.
@@ -42,13 +44,20 @@ const (
 	ScopeEventsRead Scope = "events:read"
 	// ScopeAuditRead reads the application's audit history and call statistics.
 	ScopeAuditRead Scope = "audit:read"
+	// ScopeStoresRead reads the store directory inside the configured store range.
+	ScopeStoresRead Scope = "stores:read"
+	// ScopeStoresDeliveryRead additionally reads store receiving addresses.
+	ScopeStoresDeliveryRead Scope = "stores:delivery:read"
+	// ScopeStoresMembersRead reads assignments within both store and directory ranges.
+	ScopeStoresMembersRead Scope = "stores:members:read"
 )
 
 // Machine reports whether the scope belongs to the machine vocabulary. The two
 // vocabularies are never interchangeable.
 func (s Scope) Machine() bool {
 	switch s {
-	case ScopeDirectoryRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead:
+	case ScopeDirectoryRead, ScopeLeaveRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead,
+		ScopeStoresRead, ScopeStoresDeliveryRead, ScopeStoresMembersRead:
 		return true
 	default:
 		return false
@@ -59,7 +68,8 @@ func (s Scope) valid() bool {
 	switch s {
 	case ScopeProfileRead, ScopePermissionsRead, ScopePermissionsCheck,
 		ScopeOpenID, ScopeProfile, ScopeEmail,
-		ScopeDirectoryRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead:
+		ScopeDirectoryRead, ScopeLeaveRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead,
+		ScopeStoresRead, ScopeStoresDeliveryRead, ScopeStoresMembersRead:
 		return true
 	default:
 		return false
@@ -74,7 +84,8 @@ func UserScopeVocabulary() []Scope {
 
 // MachineScopeVocabulary returns the machine scope vocabulary.
 func MachineScopeVocabulary() []Scope {
-	return []Scope{ScopeDirectoryRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead}
+	return []Scope{ScopeDirectoryRead, ScopeLeaveRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead,
+		ScopeStoresRead, ScopeStoresDeliveryRead, ScopeStoresMembersRead}
 }
 
 // GrantType is one grant the token endpoint serves. An application is
@@ -384,6 +395,10 @@ const (
 	EventAppEnabled             EventType = "app.enabled"
 	EventSessionRevoked         EventType = "session.revoked"
 	EventCredentialChanged      EventType = "credential.changed"
+
+	// EventExternalIdentityChanged asks consumers to reread the employee's bindings.
+	// Its payload contains only user_id, never external identity values.
+	EventExternalIdentityChanged EventType = "external_identity.changed"
 )
 
 // EventTypes returns the event vocabulary in the order the contract publishes
@@ -391,7 +406,7 @@ const (
 func EventTypes() []EventType {
 	return []EventType{
 		EventUserCreated, EventUserUpdated, EventUserEnabled, EventUserDisabled,
-		EventUserDeparted, EventUserRemoved,
+		EventUserDeparted, EventUserRemoved, EventExternalIdentityChanged,
 		EventDepartmentUpserted, EventDepartmentRemoved,
 		EventMembershipAdded, EventMembershipRemoved,
 		EventGroupCreated, EventGroupUpdated, EventGroupDeleted,

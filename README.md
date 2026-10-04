@@ -5,8 +5,8 @@
 
 ## 接口范围
 
-SDK 覆盖公开 OpenAPI v1 全部 40 个后端操作（当前规范 65 个操作，减去 25 个仅管理员浏览器会话可用的
-管理端与 SAML 浏览器协议操作，以及两个等价别名）。
+SDK 覆盖公开 OpenAPI v1 全部 49 个后端操作（当前规范 74 个操作，排除 19 个管理端操作、
+4 个 SAML 浏览器协议操作与 2 个等价别名）。
 
 | SDK 方法 | 服务端接口 | 身份 / scope |
 | --- | --- | --- |
@@ -26,6 +26,11 @@ SDK 覆盖公开 OpenAPI v1 全部 40 个后端操作（当前规范 65 个操�
 | `GetMachineIdentity` / `GetMachineScopes` | `/machine/me`、`/machine/me/permissions` | 机器 token（无需 scope） |
 | `ListDirectoryUsers` / `GetDirectoryUser` / `ListDirectoryUserDepartments` / `ListDirectoryUserGroups` | `/directory/users*` | 机器 token + `directory:read` |
 | `ListDirectoryDepartments` / `ListDirectoryDepartmentMembers` / `ListDirectoryGroups` / `ListDirectoryGroupMembers` | `/directory/*` | 机器 token + `directory:read` |
+| `LookupDirectoryExternalIdentities` / `ListDirectoryEmployeeExternalIdentities` | `/directory/external-identities/lookup`、`/directory/users/external-identities` | 机器 token + `directory:read` |
+| `GetEmployeeLeave` | `/leave/users/{id}` | 机器 token + `leave:read` |
+| `ListStores` / `GetStore` / `LookupExternalStores` | `/stores*` | 机器 token + `stores:read` |
+| `GetStoreReceivingAddress` | `/stores/{id}/receiving-address` | `stores:read` + `stores:delivery:read` |
+| `GetStoreEmployees` / `GetEmployeeStores` | `/stores/{id}/employees`、`/directory/users/{id}/stores` | `stores:read` + `stores:members:read` + `directory:read` |
 | `ListAppRoles` / `CreateAppRole` / `DeleteAppRole` | `/iam/roles*` | `iam:read` / `iam:write` |
 | `ListAppPermissions` / `CreateAppPermission` / `UpdateAppPermission` / `DeleteAppPermission` | `/iam/permissions*` | `iam:read` / `iam:write` |
 | `LinkRolePermission` / `UnlinkRolePermission` | `/iam/roles/{id}/permissions*` | `iam:write` |
@@ -42,14 +47,13 @@ GET 与标准发现地址。契约测试会逐项核对这份名单：服务端�
 
 ## 引入
 
-仓库为私有仓库，调用方需要 GitHub 仓库读取权限及可用的 Git 凭据。
-将 `github.com/waywake/*` 加入现有 `GOPRIVATE` 配置后，在调用方的 Go module 目录运行：
+在调用方的 Go module 目录安装当前稳定版：
 
 ```sh
-go get github.com/waywake/auth-sdk-go@latest
+go get github.com/waywake/auth-sdk-go@v1.3.0
 ```
 
-尚未发布版本 tag 时，`@latest` 使用默认分支对应的伪版本；`go.mod` 会记录该版本。
+后续升级可使用 `go get github.com/waywake/auth-sdk-go@latest`，`go.mod` 会记录选定版本。
 本地联调也可通过 replace 使用：
 
 ```sh
@@ -96,10 +100,11 @@ if err != nil {
 | 取得方式 | 浏览器授权码 / 刷新 / 企业微信小程序 | `client_credentials` |
 | 前缀 | `oat_` | `oam_` |
 | 有效期 | 最长 86400 秒，持续授权会话绝对上限 72 小时 | 86400 秒 |
-| 可用接口 | `/me*`、`/userinfo` | `/machine/*`、`/directory/*`、`/iam/*`、`/events`、`/audit/*` |
+| 可用接口 | `/me*`、`/userinfo` | `/machine/*`、`/directory/*`、`/leave/*`、`/stores/*`、`/iam/*`、`/events`、`/audit/*` |
 
 两套 scope 互不通用：人员 scope 为 `profile:read`、`permissions:read`、`permissions:check`、`openid`、
-`profile`、`email`，机器 scope 为 `directory:read`、`iam:read`、`iam:write`、`events:read`、`audit:read`。
+`profile`、`email`，机器 scope 为 `directory:read`、`leave:read`、`iam:read`、`iam:write`、`events:read`、`audit:read`、
+`stores:read`、`stores:delivery:read`、`stores:members:read`。新增能力需要管理员显式授予。
 SDK 会拒绝把机器 scope 传给授权请求、把人员 scope 传给 `ClientCredentials`，以及把 `oat_` 交给机器接口
 （反之亦然）；真正的 scope 判定始终在服务端。
 
@@ -303,6 +308,53 @@ usage, err := client.ReadAuditUsage(ctx, machineToken, 7) // days 默认 7、上
 游标早于 30 天保留窗口时 `PullEvents` 返回 `*APIError{StatusCode: 410, Code: auth.ErrorSnapshotRequired}`：
 必须重建快照后从 `After: 0` 重新开始，跳过会永久漏事件。
 
+### 外部员工身份、假期与门店
+
+```go
+// 外部员工身份使用完整四元组，批量请求最多 100 项。
+identities, err := client.LookupDirectoryExternalIdentities(ctx, machineToken, []auth.ExternalIdentityKey{
+    {Provider: "YOUZAN", TenantID: "tenant-1", Namespace: "SALESMAN", ExternalID: "staff-9"},
+})
+employees, err := client.ListDirectoryEmployeeExternalIdentities(ctx, machineToken, []int64{7, 8})
+
+// 独立 leave:read scope；当前状态与余额来自最近一次完整同步。
+leave, err := client.GetEmployeeLeave(ctx, machineToken, 7)
+if err == nil && leave.Data.OnLeave != nil {
+    fmt.Println(*leave.Data.OnLeave, leave.Data.SyncedAt)
+}
+
+// 门店分页使用字符串游标，最多 100 条；翻页时保持过滤条件不变。
+params := auth.ListStoresParams{Limit: 100}
+for {
+    page, err := client.ListStores(ctx, machineToken, params)
+    if err != nil { return err }
+    // 处理 page.Data.Items。
+    if !page.Data.HasMore { break }
+    params.After = page.Data.Next
+}
+address, err := client.GetStoreReceivingAddress(ctx, machineToken, 101)
+if err == nil && address.Data != nil {
+    fmt.Println(address.Data.Address, address.Data.DeliveryTimeRequirement)
+}
+assignments, err := client.GetStoreEmployees(ctx, machineToken, 101)
+stores, err := client.GetEmployeeStores(ctx, machineToken, 7)
+bindings, err := client.LookupExternalStores(ctx, machineToken, []auth.ExternalStoreKey{
+    {Provider: "YOUZAN", TenantKey: "brand-a", Namespace: "STORE", ExternalID: "9"},
+})
+```
+
+外部员工身份查询按输入顺序返回；不存在、解绑或范围外的身份给出 `Binding == nil`。
+按员工查询会去重并省略不可见员工，禁用但未离职员工仍可能返回 `Enabled == false`。
+收到 `EventExternalIdentityChanged`（`external_identity.changed`，只含员工 ID）后，重新读取映射。
+
+假期首次同步前 `OnLeave` 和 `SyncedAt` 为 `nil`，不能当作未休假；停用或未配置服务时返回 503。
+假期时长为原始秒值，按 `unit` 为 day/hour 分别除以 86400/3600。
+
+门店范围由独立 `store_scope` 控制，未配置时无可见门店；任职查询同时受员工目录范围限制。
+未配置收货地址时 `address.Data == nil`；员工的 `PrimaryStore == nil` 仅表示没有可见主店。
+任职与岗位按响应中的 `EvaluatedAt` 评估，可能禁用的员工仍保留关系；关系本身不授予 IAM 权限。
+门店游标绑定应用、过滤条件与策略版本，过滤或策略变化后应从头读取。当前服务端不发布门店事件。
+
 ### webhook 验签
 
 订阅端点的签名密钥只在管理端登记或轮换时显示一次。SDK 提供与服务端逐字节一致的验签实现：
@@ -383,7 +435,7 @@ if errors.Is(err, context.DeadlineExceeded) {
 `ErrTokenVerification`，未知签名键为 `ErrUnknownKey`。
 网络错误与 context 错误保留错误链；非 200 响应的读取错误可同时通过 `errors.As` 和 `errors.Is` 检查。
 响应允许 v1 新增字段，并检查关键数据是否存在，尤其区分缺失权限判断和有效 `false`。
-SDK 在本地拒绝明显越界的输入（scope 词表与两类混用、1–200 的分页上限、1–100 的批量检查、
+SDK 在本地拒绝明显越界的输入（scope 词表与两类混用、普通分页 1–200／门店分页 1–100、1–100 的批量检查和身份查询、
 最多 8 个事件类型过滤、权限 key 形状、`wx` + 16 位十六进制的小程序 AppID），
 其余判定一律以服务端为准。
 
@@ -408,25 +460,15 @@ client, err := auth.NewClient(auth.Config{
 
 ## 契约与验证
 
-基于 `../auth-server` 提交 `10da0c734ddece7fda6472d490e84785e40a03b5`（2026-09-30 核对）的：
+基于 `../auth-server` 提交 `58e6753f65225144d7bdd182d376aeeb4ab7f6c8`（2026-10-04 核对）的：
 
 - `docs/openapi-v1.json`：OpenAPI 3.1（info.version 1.2.0）；原样快照位于
   [docs/openapi-v1.json](docs/openapi-v1.json)。
 - `docs/openapi.md`、`internal/openapi/http/*`、`internal/openapi/domain/*`：协议说明和当前行为。
 
-本次对齐的变化：
-
-- 公开面从 6 个操作扩到 41 个：新增持续授权（`refresh_token`、会话 72 小时绝对上限）、
-  OIDC（Discovery、JWKS、`openid`/`profile`/`email`、ID Token、UserInfo、RP-Initiated Logout、
-  后端登出令牌）、机器身份与应用自助目录/IAM/事件/审计。
-- `Profile` 不再包含 `departments`（服务端从未在 `/me` 返回部门），改为返回
-  `probation_months` 与 `regularization_date`；组织关系请使用 `/directory/*`。
-- `Permissions`、`Check`、`BatchCheck` 新增 `evaluated_at` 与 `next_change_at`。
-- 新增错误码 `not_found`、`conflict`、`snapshot_required`；新增 `oam_` 机器 token 与 `oar_`
-  refresh token 形状，Bearer 校验按接口区分两类 token。
-- `NewAuthorization` 改为接收 `AuthorizeParams`，由 SDK 生成 state 与 PKCE；调用方自备参数时用
-  `AuthorizeURL`。`RevokeTokenParams.TokenTypeHint` 改为 `TokenTypeHint` 类型。
-- `GET /openapi/v1/me`、目录、IAM、事件与审计的 ID 均为 `int64`，时间字段使用 `time.Time`。
+本次新增 9 个后端操作：外部员工身份查询 2 个、假期查询 1 个、门店目录与任职查询 6 个。
+机器 scope 扩展到 9 个，事件新增 `external_identity.changed`，收货地址包含可选送货时间要求。
+既有方法保持兼容。服务端此次扩展仍沿用 `info.version: 1.2.0`，以提交与快照内容定位契约。
 
 ```sh
 go test ./...
@@ -440,6 +482,6 @@ AUTH_OPENAPI_SPEC=../auth-server/docs/openapi-v1.json go test -run '^TestOpenAPI
 
 也可执行 `make test vet contract`（`make check` 额外包含 race）。测试全部使用本地 HTTP/TLS mock
 与临时 RSA 密钥，不依赖真实 Auth、MySQL、Redis 或部署密钥。契约测试读取 JSON 规范，
-HTTP 测试核对鉴权和请求体，覆盖 PKCE 向量、state 边界、四类 grant、客户端认证两种方式、
+同时核对 scope 与事件完整词表；HTTP 测试核对鉴权和请求体，覆盖 PKCE 向量、state 边界、四类 grant、客户端认证两种方式、
 分页游标、错误码、取消、响应大小、重定向、示例回调重放、webhook 验签与 ID Token/登出令牌验签。
 更新服务契约后应同步快照并扩展相应类型和测试；客户端代码为手写维护。

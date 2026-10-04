@@ -3502,6 +3502,454 @@
         ]
       }
     },
+    "/openapi/v1/directory/external-identities/lookup": {
+      "post": {
+        "operationId": "lookupDirectoryExternalIdentities",
+        "summary": "Resolve confirmed external identities inside the application's directory range",
+        "description": "Requires a client-credentials machine token carrying the operation's machine scope. A machine token never carries an employee identity, never has a refresh counterpart, and is refused on every employee resource. Read-only batch of 1 to 100 keys, answered in input order. Absent, unbound, departed and out-of-range identities all return binding: null. Disabled employees retain their confirmed identities with enabled: false; a binding never proves login eligibility or authorization.",
+        "security": [
+          {
+            "machineBearer": [
+              "directory:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalIdentityLookupResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalIdentityLookupInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v1/directory/users/external-identities": {
+      "post": {
+        "operationId": "listDirectoryEmployeeExternalIdentities",
+        "summary": "Read confirmed external identities of a batch of in-range employees",
+        "description": "Requires a client-credentials machine token carrying the operation's machine scope. A machine token never carries an employee identity, never has a refresh counterpart, and is refused on every employee resource. Read-only batch of 1 to 100 employee IDs. Duplicate IDs are deduplicated in input order; out-of-range and departed employees are omitted. A readable employee with no confirmed identity has an empty identities array. Disabled employees retain mappings and expose enabled: false. Global identity writes are reserved for administrator confirmation.",
+        "security": [
+          {
+            "machineBearer": [
+              "directory:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeExternalIdentitiesResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeExternalIdentitiesInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi/v1/directory/users/{id}": {
       "get": {
         "operationId": "getDirectoryUser",
@@ -3698,6 +4146,232 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DirectoryUserResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Stable identifier of the object, as returned by the listing endpoints"
+          }
+        ]
+      }
+    },
+    "/openapi/v1/leave/users/{id}": {
+      "get": {
+        "operationId": "getEmployeeLeave",
+        "summary": "Read an employee's leave records and balances inside the current directory range",
+        "description": "Requires a client-credentials machine token carrying the operation's machine scope. A machine token never carries an employee identity, never has a refresh counterpart, and is refused on every employee resource. Requires the independent leave:read scope; directory:read does not authorize leave data. The current directory range is rechecked on every request. Hidden and departed employees answer 404. An unconfigured leave source answers 503; an employee not yet synchronized has synced_at and on_leave set to null. No leave reason or attachment is exposed. Balances preserve the upstream day/hour unit: a day is 86400 seconds, an hour is 3600 seconds. Consumers must inspect synced_at before treating the snapshot as current.",
+        "security": [
+          {
+            "machineBearer": [
+              "leave:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveSummaryResponse"
                 }
               }
             },
@@ -8713,6 +9387,7 @@
                   "user.disabled",
                   "user.departed",
                   "user.removed",
+                  "external_identity.changed",
                   "department.upserted",
                   "department.removed",
                   "membership.added",
@@ -13849,6 +14524,1411 @@
           }
         }
       }
+    },
+    "/openapi/v1/stores": {
+      "get": {
+        "operationId": "listStores",
+        "summary": "listStores",
+        "description": "Machine Bearer only. All named scopes are required. Current brand/store scope applies; employee relationships also require current directory visibility and omit departed employees. Missing or hidden resources answer 404; lookup returns null. Positions and relationships are evaluated at one evaluated_at with half-open intervals. next_change_at includes only visible valid relationships and positions. No event subscription is offered in this phase.",
+        "security": [
+          {
+            "machineBearer": [
+              "stores:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetailStorePageResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque next cursor; changed policy/filter requires restart"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Page size; default 50, maximum 100"
+          },
+          {
+            "name": "brand_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "description": "Narrow within the authorized brands/stores"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "preparing",
+                "open",
+                "suspended",
+                "closed"
+              ]
+            },
+            "description": "Store state filter"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "Store name/code search"
+          }
+        ]
+      }
+    },
+    "/openapi/v1/stores/{id}": {
+      "get": {
+        "operationId": "getStore",
+        "summary": "getStore",
+        "description": "Machine Bearer only. All named scopes are required. Current brand/store scope applies; employee relationships also require current directory visibility and omit departed employees. Missing or hidden resources answer 404; lookup returns null. Positions and relationships are evaluated at one evaluated_at with half-open intervals. next_change_at includes only visible valid relationships and positions. No event subscription is offered in this phase.",
+        "security": [
+          {
+            "machineBearer": [
+              "stores:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetailStoreResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Stable identifier of the object, as returned by the listing endpoints"
+          }
+        ]
+      }
+    },
+    "/openapi/v1/stores/{id}/receiving-address": {
+      "get": {
+        "operationId": "getStoreReceivingAddress",
+        "summary": "getStoreReceivingAddress",
+        "description": "Machine Bearer only. All named scopes are required. Current brand/store scope applies; employee relationships also require current directory visibility and omit departed employees. Missing or hidden resources answer 404; lookup returns null. Positions and relationships are evaluated at one evaluated_at with half-open intervals. next_change_at includes only visible valid relationships and positions. No event subscription is offered in this phase.",
+        "security": [
+          {
+            "machineBearer": [
+              "stores:read",
+              "stores:delivery:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetailAddressResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Stable identifier of the object, as returned by the listing endpoints"
+          }
+        ]
+      }
+    },
+    "/openapi/v1/stores/{id}/employees": {
+      "get": {
+        "operationId": "getStoreEmployees",
+        "summary": "getStoreEmployees",
+        "description": "Machine Bearer only. All named scopes are required. Current brand/store scope applies; employee relationships also require current directory visibility and omit departed employees. Missing or hidden resources answer 404; lookup returns null. Positions and relationships are evaluated at one evaluated_at with half-open intervals. next_change_at includes only visible valid relationships and positions. No event subscription is offered in this phase.",
+        "security": [
+          {
+            "machineBearer": [
+              "stores:read",
+              "stores:members:read",
+              "directory:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetailMembersResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Stable identifier of the object, as returned by the listing endpoints"
+          }
+        ]
+      }
+    },
+    "/openapi/v1/directory/users/{id}/stores": {
+      "get": {
+        "operationId": "getEmployeeStores",
+        "summary": "getEmployeeStores",
+        "description": "Machine Bearer only. All named scopes are required. Current brand/store scope applies; employee relationships also require current directory visibility and omit departed employees. Missing or hidden resources answer 404; lookup returns null. Positions and relationships are evaluated at one evaluated_at with half-open intervals. next_change_at includes only visible valid relationships and positions. No event subscription is offered in this phase.",
+        "security": [
+          {
+            "machineBearer": [
+              "stores:read",
+              "stores:members:read",
+              "directory:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetailEmployeeStoresResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Stable identifier of the object, as returned by the listing endpoints"
+          }
+        ]
+      }
+    },
+    "/openapi/v1/stores/external-identities/lookup": {
+      "post": {
+        "operationId": "lookupExternalStores",
+        "summary": "lookupExternalStores",
+        "description": "Machine Bearer only. All named scopes are required. Current brand/store scope applies; employee relationships also require current directory visibility and omit departed employees. Missing or hidden resources answer 404; lookup returns null. Positions and relationships are evaluated at one evaluated_at with half-open intervals. next_change_at includes only visible valid relationships and positions. No event subscription is offered in this phase.",
+        "security": [
+          {
+            "machineBearer": [
+              "stores:read"
+            ]
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request, scope, grant or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or token, or a login that no longer passes admission; WWW-Authenticate is included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTPS, application IP, scope or directory range refused access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The named object is outside this application or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The object already exists, is still referenced, or the settings revision is stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable; access refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetailLookupResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetailLookupInput"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -13890,10 +15970,14 @@
             "tokenUrl": "/openapi/v1/oauth/token",
             "scopes": {
               "directory:read": "Read the organization inside the configured directory range",
+              "leave:read": "Read leave records and balances inside the configured directory range",
               "iam:read": "Read this application's roles, permission points and explanations",
               "iam:write": "Manage this application's roles, permission points and grants",
               "events:read": "Pull this application's change stream",
-              "audit:read": "Read this application's audit history and call statistics"
+              "audit:read": "Read this application's audit history and call statistics",
+              "stores:read": "Read explicitly granted store data; delivery and members additionally require stores:read, members also requires directory:read",
+              "stores:delivery:read": "Read explicitly granted store data; delivery and members additionally require stores:read, members also requires directory:read",
+              "stores:members:read": "Read explicitly granted store data; delivery and members additionally require stores:read, members also requires directory:read"
             }
           }
         }
@@ -14635,6 +16719,142 @@
           }
         }
       },
+      "LeaveRecord": {
+        "type": "object",
+        "required": [
+          "approval_id",
+          "item_id",
+          "type_id",
+          "type_name",
+          "start_at",
+          "end_at",
+          "duration_seconds",
+          "unit",
+          "status"
+        ],
+        "properties": {
+          "approval_id": {
+            "type": "string"
+          },
+          "item_id": {
+            "type": "string"
+          },
+          "type_id": {
+            "type": "integer"
+          },
+          "type_name": {
+            "type": "string"
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_seconds": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              6,
+              7,
+              10
+            ],
+            "description": "WeCom approval status; only 2 (approved) contributes to on_leave"
+          }
+        }
+      },
+      "LeaveBalance": {
+        "type": "object",
+        "required": [
+          "type_id",
+          "type_name",
+          "unit",
+          "assigned_seconds",
+          "used_seconds",
+          "remaining_seconds"
+        ],
+        "properties": {
+          "type_id": {
+            "type": "integer"
+          },
+          "type_name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "assigned_seconds": {
+            "type": "integer"
+          },
+          "used_seconds": {
+            "type": "integer"
+          },
+          "remaining_seconds": {
+            "type": "integer",
+            "description": "Upstream remaining quota, including a negative value when permitted by the supplier policy"
+          }
+        }
+      },
+      "LeaveSummary": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "on_leave",
+          "synced_at",
+          "records",
+          "balances"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "integer"
+          },
+          "on_leave": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Approved interval covers the current time; null before the first successful synchronization"
+          },
+          "synced_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaveRecord"
+            }
+          },
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaveBalance"
+            }
+          }
+        }
+      },
       "DirectoryUserPage": {
         "type": "object",
         "required": [
@@ -14651,6 +16871,166 @@
           "next": {
             "type": "integer",
             "description": "0 on the last page, otherwise the cursor to pass as `after`"
+          }
+        }
+      },
+      "ExternalIdentityKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "tenant_id",
+          "namespace",
+          "external_id"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "description": "Trimmed and uppercased provider code; 1 to 32 ASCII letters, digits, underscores or hyphens"
+          },
+          "tenant_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Trimmed, case-sensitive opaque tenant ID, at most 128 UTF-8 bytes; control characters are refused"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Trimmed and uppercased identity namespace; 1 to 32 ASCII letters, digits, underscores or hyphens"
+          },
+          "external_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Trimmed, case-sensitive opaque account ID, at most 128 UTF-8 bytes; control characters are refused"
+          }
+        }
+      },
+      "ExternalIdentityLookupInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identities"
+        ],
+        "properties": {
+          "identities": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ExternalIdentityKey"
+            }
+          }
+        }
+      },
+      "EmployeeExternalIdentitiesInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "user_ids"
+        ],
+        "properties": {
+          "user_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            }
+          }
+        }
+      },
+      "ExternalIdentityBinding": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "version",
+          "enabled",
+          "updated_at"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ExternalIdentityLookup": {
+        "type": "object",
+        "required": [
+          "identity",
+          "binding"
+        ],
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/ExternalIdentityKey"
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExternalIdentityBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "EmployeeExternalIdentity": {
+        "type": "object",
+        "required": [
+          "identity",
+          "version",
+          "updated_at"
+        ],
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/ExternalIdentityKey"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EmployeeExternalIdentities": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "enabled",
+          "identities"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "identities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeExternalIdentity"
+            }
           }
         }
       },
@@ -15072,10 +17452,14 @@
               "type": "string",
               "enum": [
                 "directory:read",
+                "leave:read",
                 "iam:read",
                 "iam:write",
                 "events:read",
-                "audit:read"
+                "audit:read",
+                "stores:read",
+                "stores:delivery:read",
+                "stores:members:read"
               ]
             }
           },
@@ -15133,6 +17517,33 @@
           "credentials_present": {
             "type": "boolean",
             "description": "Whether any unrevoked client credential exists"
+          },
+          "store_scope": {
+            "type": "array",
+            "maxItems": 1024,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref_id"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "brand",
+                    "store"
+                  ]
+                },
+                "ref_id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            },
+            "description": "Independent brand/store union. Empty denies all stores. Brand access includes future stores. Changes revoke existing tokens."
           }
         }
       },
@@ -15220,6 +17631,33 @@
           },
           "connect_verified": {
             "type": "boolean"
+          },
+          "store_scope": {
+            "type": "array",
+            "maxItems": 1024,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref_id"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "brand",
+                    "store"
+                  ]
+                },
+                "ref_id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            },
+            "description": "Independent brand/store union. Empty denies all stores. Brand access includes future stores. Changes revoke existing tokens."
           }
         }
       },
@@ -15425,6 +17863,21 @@
           }
         }
       },
+      "LeaveSummaryResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LeaveSummary"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
       "PermissionExplanationResponse": {
         "type": "object",
         "required": [
@@ -15550,6 +18003,42 @@
           }
         }
       },
+      "ExternalIdentityLookupResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalIdentityLookup"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "EmployeeExternalIdentitiesResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeExternalIdentities"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
       "SettingsEnvelope": {
         "allOf": [
           {
@@ -15657,6 +18146,7 @@
               "user.disabled",
               "user.departed",
               "user.removed",
+              "external_identity.changed",
               "department.upserted",
               "department.removed",
               "membership.added",
@@ -16080,6 +18570,7 @@
                 "user.disabled",
                 "user.departed",
                 "user.removed",
+                "external_identity.changed",
                 "department.upserted",
                 "department.removed",
                 "membership.added",
@@ -16279,6 +18770,7 @@
                         "user.disabled",
                         "user.departed",
                         "user.removed",
+                        "external_identity.changed",
                         "department.upserted",
                         "department.removed",
                         "membership.added",
@@ -16503,7 +18995,7 @@
           "event_types": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 23,
+            "maxItems": 24,
             "items": {
               "type": "string",
               "enum": [
@@ -16513,6 +19005,7 @@
                 "user.disabled",
                 "user.departed",
                 "user.removed",
+                "external_identity.changed",
                 "department.upserted",
                 "department.removed",
                 "membership.added",
@@ -16734,6 +19227,489 @@
           },
           "data": {
             "$ref": "#/components/schemas/SAMLSettings"
+          }
+        }
+      },
+      "RetailStore": {
+        "type": "object",
+        "required": [
+          "id",
+          "brand_id",
+          "code",
+          "name",
+          "status",
+          "location",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "brand_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "preparing",
+              "open",
+              "suspended",
+              "closed"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "RetailAddress": {
+        "type": "object",
+        "required": [
+          "store_id",
+          "region",
+          "address",
+          "contact_name",
+          "contact_phone",
+          "version"
+        ],
+        "properties": {
+          "store_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "region": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "contact_name": {
+            "type": "string"
+          },
+          "contact_phone": {
+            "type": "string"
+          },
+          "delivery_time_requirement": {
+            "type": "string",
+            "description": "可选送货时间要求，未填写为空字符串",
+            "maxLength": 1024
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "RetailPosition": {
+        "type": "object",
+        "required": [
+          "id",
+          "position_code",
+          "started_at",
+          "ended_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "position_code": {
+            "type": "string",
+            "enum": [
+              "store_manager",
+              "sales_associate"
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RetailAssignment": {
+        "type": "object",
+        "required": [
+          "id",
+          "store_id",
+          "user_id",
+          "kind",
+          "assignment_type",
+          "started_at",
+          "ended_at",
+          "employee_enabled",
+          "positions"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "user_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "employment",
+              "receiving_contact"
+            ]
+          },
+          "assignment_type": {
+            "type": "string",
+            "enum": [
+              "",
+              "primary",
+              "secondment"
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "employee_enabled": {
+            "type": "boolean"
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetailPosition"
+            }
+          }
+        }
+      },
+      "RetailPlacement": {
+        "type": "object",
+        "required": [
+          "store",
+          "assignment"
+        ],
+        "properties": {
+          "store": {
+            "$ref": "#/components/schemas/RetailStore"
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/RetailAssignment"
+          }
+        }
+      },
+      "RetailStorePage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetailStore"
+            }
+          },
+          "next": {
+            "type": "string",
+            "description": "Opaque cursor bound to application, filter and policy epoch; empty at end"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RetailMembers": {
+        "type": "object",
+        "required": [
+          "items",
+          "evaluated_at",
+          "next_change_at"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetailAssignment"
+            }
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "next_change_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RetailEmployeeStores": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "primary_store",
+          "secondments",
+          "other_relations",
+          "evaluated_at",
+          "next_change_at"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "primary_store": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetailPlacement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null means no visible primary; it does not disclose whether a hidden primary exists"
+          },
+          "secondments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetailPlacement"
+            }
+          },
+          "other_relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetailPlacement"
+            }
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "next_change_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RetailExternalKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "tenant_key",
+          "namespace",
+          "external_id"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "tenant_key": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RetailLookupInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identities"
+        ],
+        "properties": {
+          "identities": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/RetailExternalKey"
+            }
+          }
+        }
+      },
+      "RetailLookup": {
+        "type": "object",
+        "required": [
+          "identity",
+          "binding"
+        ],
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/RetailExternalKey"
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "store_id",
+                  "version"
+                ],
+                "properties": {
+                  "store_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "RetailStoreResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetailStore"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RetailStorePageResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetailStorePage"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RetailMembersResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetailMembers"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RetailEmployeeStoresResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetailEmployeeStores"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RetailAddressResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetailAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RetailLookupResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetailLookup"
+            }
+          },
+          "request_id": {
+            "type": "string"
           }
         }
       }

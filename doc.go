@@ -10,7 +10,8 @@
 //   - GetCurrentUser, GetCurrentPermissions, CheckCurrentPermission and
 //     CheckCurrentPermissions read the authorizing employee.
 //   - GetMachineIdentity and GetMachineScopes describe a machine token, and the
-//     directory, IAM, event and audit calls act for the application itself.
+//     directory, leave, store, IAM, event and audit calls act for the application
+//     itself.
 //   - Discovery, JSONWebKeySet, GetUserInfo and the VerifyIDToken /
 //     VerifyLogoutToken methods cover the OIDC half of the contract.
 //

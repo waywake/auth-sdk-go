@@ -247,7 +247,7 @@ type RefreshParams struct {
 	Scopes       []Scope
 }
 
-// ClientCredentialsParams requests a machine token. One to five machine scopes
+// ClientCredentialsParams requests a machine token. One to nine machine scopes
 // are required: an application that was granted no machine scope cannot mint
 // one.
 type ClientCredentialsParams struct {
@@ -361,8 +361,8 @@ func (c *Client) ClientCredentials(ctx context.Context, params ClientCredentials
 	if err != nil {
 		return nil, err
 	}
-	if len(scopes) == 0 || len(scopes) > 5 {
-		return nil, invalid("Scopes", "must contain one to five machine scopes")
+	if len(scopes) == 0 || len(scopes) > len(MachineScopeVocabulary()) {
+		return nil, invalid("Scopes", "must contain one to nine machine scopes")
 	}
 	return c.tokenRequest(ctx, url.Values{
 		"grant_type": {string(GrantClientCredentials)}, "scope": {joinScopeList(scopes)},

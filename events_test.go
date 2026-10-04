@@ -12,7 +12,7 @@ import (
 func TestPullEventsRequest(t *testing.T) {
 	c, m := jsonMock(t, `{"data":{"next":21,"events":[{"id":20,"sequence":20,"type":"user.updated","subject":"user","subject_id":7,"occurred_at":"2026-09-30T10:00:00Z","expires_at":"2026-10-30T10:00:00Z","data":{"user_id":7}}],"has_more":true},"request_id":"r"}`)
 	page, err := c.PullEvents(context.Background(), testMachineToken, PullEventsParams{
-		After: 12, Limit: 10, Types: []EventType{EventUserUpdated, EventSessionRevoked},
+		After: 12, Limit: 10, Types: []EventType{EventUserUpdated, EventSessionRevoked, EventExternalIdentityChanged},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -21,7 +21,7 @@ func TestPullEventsRequest(t *testing.T) {
 	if request.method != http.MethodGet || request.path != apiPath+"/events" || request.token != bearer(testMachineToken) {
 		t.Fatalf("request=%+v", request)
 	}
-	if got := request.query["type"]; len(got) != 2 || got[0] != "user.updated" || got[1] != "session.revoked" {
+	if got := request.query["type"]; len(got) != 3 || got[0] != "user.updated" || got[1] != "session.revoked" || got[2] != "external_identity.changed" {
 		t.Fatalf("type=%v", got)
 	}
 	if request.query.Get("after") != "12" || request.query.Get("limit") != "10" {
@@ -72,7 +72,7 @@ func TestPullEventsValidation(t *testing.T) {
 	if _, err := c.PullEvents(ctx, testMachineToken, PullEventsParams{Limit: 201}); !errors.Is(err, ErrInvalidArgument) {
 		t.Fatal("accepted an oversized page")
 	}
-	if len(EventTypes()) != 23 {
+	if len(EventTypes()) != 24 {
 		t.Fatalf("event vocabulary has %d entries", len(EventTypes()))
 	}
 	for _, eventType := range EventTypes() {

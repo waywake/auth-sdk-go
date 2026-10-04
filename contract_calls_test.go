@@ -45,7 +45,7 @@ var contractCalls = []struct {
 		if _, err := c.Refresh(ctx, RefreshParams{RefreshToken: testRefreshToken}); err != nil {
 			return nil, err
 		}
-		if _, err := c.ClientCredentials(ctx, ClientCredentialsParams{Scopes: []Scope{ScopeDirectoryRead, ScopeIAMRead}}); err != nil {
+		if _, err := c.ClientCredentials(ctx, ClientCredentialsParams{Scopes: MachineScopeVocabulary()}); err != nil {
 			return nil, err
 		}
 		_, err := c.ExchangeMiniProgramCode(ctx, MiniProgramParams{
@@ -139,6 +139,42 @@ var contractCalls = []struct {
 		_, err := c.ListDirectoryGroupMembers(ctx, testMachineToken, 8, PageParams{After: 5})
 		return nil, err
 	}},
+	{"directory/external-identities/lookup", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.LookupDirectoryExternalIdentities(ctx, testMachineToken, []ExternalIdentityKey{{Provider: "YOUZAN", TenantID: "tenant-1", Namespace: "SALESMAN", ExternalID: "staff-9"}})
+		return nil, err
+	}},
+	{"directory/users/external-identities", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.ListDirectoryEmployeeExternalIdentities(ctx, testMachineToken, []int64{7, 8})
+		return nil, err
+	}},
+	{"leave/users/{id}", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.GetEmployeeLeave(ctx, testMachineToken, 7)
+		return nil, err
+	}},
+	{"stores", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.ListStores(ctx, testMachineToken, ListStoresParams{After: "opaque-cursor", Limit: 100, BrandID: 3, Status: StoreStatusOpen, Query: "上海"})
+		return nil, err
+	}},
+	{"stores/{id}", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.GetStore(ctx, testMachineToken, 101)
+		return nil, err
+	}},
+	{"stores/{id}/receiving-address", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.GetStoreReceivingAddress(ctx, testMachineToken, 101)
+		return nil, err
+	}},
+	{"stores/{id}/employees", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.GetStoreEmployees(ctx, testMachineToken, 101)
+		return nil, err
+	}},
+	{"directory/users/{id}/stores", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.GetEmployeeStores(ctx, testMachineToken, 7)
+		return nil, err
+	}},
+	{"stores/external-identities/lookup", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
+		_, err := c.LookupExternalStores(ctx, testMachineToken, []ExternalStoreKey{{Provider: "YOUZAN", TenantKey: "brand-a", Namespace: "STORE", ExternalID: "9"}})
+		return nil, err
+	}},
 	{"iam/roles", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
 		_, err := c.ListAppRoles(ctx, testMachineToken, PageParams{After: 4, Limit: 10})
 		return nil, err
@@ -197,7 +233,7 @@ var contractCalls = []struct {
 	}},
 	{"events", func(_ *testing.T, c *Client, ctx context.Context) ([]*http.Request, error) {
 		_, err := c.PullEvents(ctx, testMachineToken, PullEventsParams{
-			After: 12, Limit: 10, Types: []EventType{EventUserUpdated, EventSessionRevoked},
+			After: 12, Limit: 10, Types: []EventType{EventUserUpdated, EventSessionRevoked, EventExternalIdentityChanged},
 		})
 		return nil, err
 	}},
@@ -253,6 +289,16 @@ var excludedOperations = map[string]string{
 // contractResponses holds one valid answer per exercised path. The token
 // endpoint answers per grant, because the two token kinds differ.
 var contractResponses = map[string]string{
+	"POST " + apiPath + "/directory/external-identities/lookup": `{"data":[{"identity":{"provider":"YOUZAN","tenant_id":"tenant-1","namespace":"SALESMAN","external_id":"staff-9"},"binding":null}],"request_id":"r"}`,
+	"POST " + apiPath + "/directory/users/external-identities":  `{"data":[{"user_id":7,"enabled":false,"identities":[]}],"request_id":"r"}`,
+	"GET " + apiPath + "/leave/users/7":                         `{"data":{"user_id":7,"on_leave":null,"synced_at":null,"records":[],"balances":[]},"request_id":"r"}`,
+	"GET " + apiPath + "/stores":                                `{"data":{"items":[],"next":"","has_more":false},"request_id":"r"}`,
+	"GET " + apiPath + "/stores/101":                            `{"data":{"id":101,"brand_id":3,"code":"SH001","name":"上海门店","status":"open","location":"上海","version":1},"request_id":"r"}`,
+	"GET " + apiPath + "/stores/101/receiving-address":          `{"data":null,"request_id":"r"}`,
+	"GET " + apiPath + "/stores/101/employees":                  `{"data":{"items":[],"evaluated_at":"2026-10-04T10:00:00Z","next_change_at":null},"request_id":"r"}`,
+	"GET " + apiPath + "/directory/users/7/stores":              `{"data":{"user_id":7,"primary_store":null,"secondments":[],"other_relations":[],"evaluated_at":"2026-10-04T10:00:00Z","next_change_at":null},"request_id":"r"}`,
+	"POST " + apiPath + "/stores/external-identities/lookup":    `{"data":[{"identity":{"provider":"YOUZAN","tenant_key":"brand-a","namespace":"STORE","external_id":"9"},"binding":null}],"request_id":"r"}`,
+
 	"GET /.well-known/openid-configuration":               `{"issuer":"https://auth.example.com","authorization_endpoint":"https://auth.example.com/openapi/v1/oauth/authorize","token_endpoint":"https://auth.example.com/openapi/v1/oauth/token","userinfo_endpoint":"https://auth.example.com/openapi/v1/userinfo","end_session_endpoint":"https://auth.example.com/openapi/v1/oauth/logout","jwks_uri":"https://auth.example.com/openapi/v1/.well-known/jwks.json","scopes_supported":["profile:read"],"response_types_supported":["code"],"id_token_signing_alg_values_supported":["RS256"]}`,
 	"GET " + apiPath + jwksPath:                           `{"keys":[{"kty":"RSA","use":"sig","alg":"RS256","kid":"k1","n":"AQAB","e":"AQAB"}]}`,
 	"POST " + apiPath + "/oauth/revoke":                   ``,

@@ -234,7 +234,7 @@ func TestInvalidIAMResponses(t *testing.T) {
 	if !errors.As(err, &apiErr) || apiErr.StatusCode != 409 || apiErr.Code != ErrorConflict {
 		t.Fatalf("err=%v", err)
 	}
-	if !reflect.DeepEqual(MachineScopeVocabulary(), []Scope{ScopeDirectoryRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead}) {
+	if !reflect.DeepEqual(MachineScopeVocabulary(), []Scope{ScopeDirectoryRead, ScopeLeaveRead, ScopeIAMRead, ScopeIAMWrite, ScopeEventsRead, ScopeAuditRead, ScopeStoresRead, ScopeStoresDeliveryRead, ScopeStoresMembersRead}) {
 		t.Fatal("machine scope vocabulary")
 	}
 }
